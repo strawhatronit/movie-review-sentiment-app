@@ -4,7 +4,8 @@ import pandas as pd
    # analysis.py
 # analysis.py
 import pandas as pd
-@st.cache_data(show_spinner="Loading IMDb datasets...")
+import re
+
 def load_imdb_data():
     basics = pd.read_csv(
         "https://datasets.imdbws.com/title.basics.tsv.gz",
@@ -53,13 +54,6 @@ imdb_ratings = load_imdb_ratings()
 # -----------------------------
 # IMDb rating fetch
 # -----------------------------
-def normalize_title(title):
-    return (
-        title.lower()
-        .replace(" ", "")
-        .replace(".", "")
-        .replace("-", "")
-    )
 
 import re
 
@@ -72,8 +66,11 @@ def get_imdb_rating(movie_name, movie_year=None):
     search = normalize(movie_name)
     data["normTitle"] = data["primaryTitle"].apply(normalize)
 
+
     # Only movies
     data = data[data["titleType"] == "movie"]
+    data = data.sort_values("numVotes", ascending=False).head(300_000)
+
 
     # Exact normalized match
     matches = data[data["normTitle"] == search]
