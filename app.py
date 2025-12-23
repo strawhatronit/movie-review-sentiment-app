@@ -2,6 +2,10 @@
 import streamlit as st
 from analysis import get_imdb_rating, analyze_rt_reviews, final_verdict
 
+@st.cache_data(show_spinner="Loading IMDb datasets...")
+def cached_get_imdb(movie_name, movie_year):
+    return get_imdb_rating(movie_name, movie_year)
+
 st.set_page_config(page_title="Movie Review Analyzer", layout="centered")
 
 st.title("🎬 Movie Review Sentiment Analyzer")
@@ -16,7 +20,7 @@ if movie_name:
     # ---------------- DATA ----------------
     st.header("2️⃣ Ratings & Review Data")
 
-    imdb_rating, imdb_votes = get_imdb_rating(movie_name, movie_year)
+    imdb_rating, imdb_votes = cached_get_imdb(movie_name, movie_year)
     rt_pos, rt_neg = analyze_rt_reviews()
 
     st.metric("IMDb Rating", imdb_rating)
