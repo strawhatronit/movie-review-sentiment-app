@@ -61,25 +61,42 @@ def normalize_title(title):
         .replace("-", "")
     )
 
+import re
+
+def normalize(title):
+    return re.sub(r"[^a-z0-9]", "", title.lower())
+
 def get_imdb_rating(movie_name, movie_year=None):
     data = load_imdb_data()
-    search = movie_name.lower().replace(" ", "").replace(".", "")
 
+    search = normalize(movie_name)
+    data["normTitle"] = data["primaryTitle"].apply(normalize)
+
+    # Only movies
+    data = data[data["titleType"] == "movie"]
+
+    # Exact normalized match
     matches = data[data["normTitle"] == search]
 
+    # Optional year filter
     if movie_year and not matches.empty:
         year_matches = matches[matches["startYear"] == str(movie_year)]
         if not year_matches.empty:
             matches = year_matches
 
+    # Fallback: contains match
     if matches.empty:
         matches = data[data["normTitle"].str.contains(search, na=False)]
 
     if matches.empty:
         return None, None
 
+    # Pick most popular version
+    matches["numVotes"] = matches["numVotes"].astype(int)
     best = matches.sort_values("numVotes", ascending=False).iloc[0]
+
     return float(best["averageRating"]), int(best["numVotes"])
+
 
 
 
@@ -96,17 +113,15 @@ def analyze_rt_reviews():
 # Final verdict logic
 # -----------------------------
 def final_verdict(imdb_rating, imdb_votes, rt_pos, rt_neg):
-    # Safety check
     if imdb_rating is None or imdb_votes is None:
         return "Insufficient IMDb data", 0.0
 
-    if rt_pos + rt_neg == 0:
-        rt_score = 0
-    else:
-        rt_score = rt_pos / (rt_pos + rt_neg)
+    rt_total = rt_pos + rt_neg
+    rt_score = rt_pos / rt_total if rt_total > 0 else 0
 
     score = (imdb_rating / 10) * 0.6 + rt_score * 0.4
 
-    verdict = "Good Movie" if score >= 0.6 else "Bad Movie"
+    verdict = "Good Movie" if score >= 0.6 else "Average Movie"
     return verdict, round(score, 2)
+
 
