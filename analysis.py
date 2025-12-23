@@ -26,7 +26,7 @@ def get_imdb_rating(movie_name, movie_year=None):
         compression="gzip",
         usecols=["tconst", "primaryTitle", "startYear"],
         dtype=str,
-        nrows=500_000
+        nrows=600_000
     )
 
     ratings = pd.read_csv(
@@ -34,7 +34,7 @@ def get_imdb_rating(movie_name, movie_year=None):
         sep="\t",
         compression="gzip",
         dtype=str,
-        nrows=500_000
+        nrows=600_000
     )
 
     merged = basics.merge(ratings, on="tconst")
@@ -42,17 +42,18 @@ def get_imdb_rating(movie_name, movie_year=None):
     merged["primaryTitle"] = merged["primaryTitle"].str.lower()
     merged["startYear"] = merged["startYear"].fillna("0")
 
-    filtered = merged[merged["primaryTitle"] == movie_name.lower()]
+    matches = merged[
+        merged["primaryTitle"].str.contains(movie_name.lower(), na=False)
+    ]
 
     if movie_year:
-        filtered = filtered[filtered["startYear"] == str(movie_year)]
+        matches = matches[matches["startYear"] == str(movie_year)]
 
-    if filtered.empty:
+    if matches.empty:
         return None, None
 
-    # pick most popular version if multiple remain
-    filtered["numVotes"] = filtered["numVotes"].astype(int)
-    best = filtered.sort_values("numVotes", ascending=False).iloc[0]
+    matches["numVotes"] = matches["numVotes"].astype(int)
+    best = matches.sort_values("numVotes", ascending=False).iloc[0]
 
     return float(best["averageRating"]), int(best["numVotes"])
 
