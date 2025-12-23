@@ -32,9 +32,9 @@ def get_imdb_rating(movie_name, movie_year=None):
         "https://datasets.imdbws.com/title.basics.tsv.gz",
         sep="\t",
         compression="gzip",
-        usecols=["tconst", "primaryTitle", "startYear"],
+        usecols=["tconst", "primaryTitle", "startYear", "titleType"],
         dtype=str,
-        nrows=1_000_000
+        nrows=1_500_000
     )
 
     ratings = pd.read_csv(
@@ -42,34 +42,44 @@ def get_imdb_rating(movie_name, movie_year=None):
         sep="\t",
         compression="gzip",
         dtype=str,
-        nrows=1_000_000
+        nrows=1_500_000
     )
 
     merged = basics.merge(ratings, on="tconst", how="inner")
 
-    # Clean data
-    merged = merged[merged["startYear"].str.isnumeric()]
-    merged["startYear"] = merged["startYear"].astype(int)
-    merged["numVotes"] = merged["numVotes"].astype(int)
-    merged["averageRating"] = merged["averageRating"].astype(float)
+    # Keep only movies
+    merged = merged[merged["titleType"] == "movie"]
+
+    # Clean numeric fields
+    merged["numVotes"] = pd.to_numeric(merged["numVotes"], errors="coerce")
+    merged["averageRating"] = pd.to_numeric(merged["averageRating"], errors="coerce")
+
+    merged = merged.dropna(subset=["numVotes", "averageRating"])
 
     # Normalize titles
     merged["normTitle"] = merged["primaryTitle"].apply(normalize_title)
-    search_title = normalize_title(movie_name)
+    search = normalize_title(movie_name)
 
-    matches = merged[merged["normTitle"] == search_title]
+    # STEP 1: Exact title match
+    candidates = merged[merged["normTitle"] == search]
 
-    # Year filter (VERY IMPORTANT)
-    if movie_year:
-        matches = matches[matches["startYear"] == int(movie_year)]
+    # STEP 2: If year exists, try filtering — but DO NOT force it
+    if movie_year and not candidates.empty:
+        year_matches = candidates[candidates["startYear"] == str(movie_year)]
+        if not year_matches.empty:
+            candidates = year_matches
 
-    if matches.empty:
+    # STEP 3: If still empty, fallback to contains
+    if candidates.empty:
+        candidates = merged[merged["normTitle"].str.contains(search, na=False)]
+
+    if candidates.empty:
         return None, None
 
-    # Pick the most trusted one
-    best = matches.sort_values("numVotes", ascending=False).iloc[0]
+    # STEP 4: Trust the most popular version
+    best = candidates.sort_values("numVotes", ascending=False).iloc[0]
 
-    return best["averageRating"], best["numVotes"]
+    return float(best["averageRating"]), int(best["numVotes"])
 
 
 
