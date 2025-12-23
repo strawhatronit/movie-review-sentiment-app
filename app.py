@@ -1,54 +1,46 @@
+# app.py
 import streamlit as st
-from analysis import get_imdb_rating, analyze_sentiment, final_verdict
+from analysis import get_imdb_rating, analyze_rt_reviews, final_verdict
 
 st.set_page_config(
-    page_title="Movie Review Sentiment Analyzer",
+    page_title="Movie Review Analyzer",
     layout="centered"
 )
 
 st.title("🎬 Movie Review Sentiment Analyzer")
 
-# ----------- INPUT SECTION -----------
-st.header("🔍 Movie Input")
-movie_name = st.text_input(
-    "Enter movie name",
-    placeholder="Example: Titanic"
-)
+# -------- SECTION 1: INPUT ----------
+st.header("1️⃣ Movie Input")
+movie_name = st.text_input("Enter movie name")
 
-# Sample lightweight reviews (RAM safe)
-sample_reviews = [
-    "Amazing movie with emotional depth",
-    "Great performances and direction",
-    "Visually stunning and memorable",
-    "Classic cinema experience",
-    "A bit long but worth watching"
-]
+if movie_name:
 
-if st.button("Analyze Movie"):
+    # -------- SECTION 2: DATA ----------
+    st.header("2️⃣ Ratings & Review Data")
+
     imdb_rating, imdb_votes = get_imdb_rating(movie_name)
+    rt_pos, rt_neg = analyze_rt_reviews()
 
-    if imdb_rating is None:
-        st.error("Movie not found in IMDb dataset.")
-    else:
-        pos, neg = analyze_sentiment(sample_reviews)
-        verdict, score, explanation = final_verdict(
-            imdb_rating, imdb_votes, pos, neg
-        )
+    st.metric("IMDb Rating", imdb_rating)
+    st.metric("IMDb Votes", imdb_votes)
+    st.metric("RT Positive Reviews", rt_pos)
+    st.metric("RT Negative Reviews", rt_neg)
 
-        # ----------- DATA SECTION -----------
-        st.header("📊 Ratings & Data")
-        col1, col2 = st.columns(2)
-        col1.metric("IMDb Rating", imdb_rating)
-        col2.metric("IMDb Votes", imdb_votes)
+    # -------- SECTION 3: VERDICT ----------
+    st.header("3️⃣ Final Verdict")
 
-        st.write("Positive Reviews:", pos)
-        st.write("Negative Reviews:", neg)
+    verdict, score = final_verdict(imdb_rating, imdb_votes, rt_pos, rt_neg)
 
-        # ----------- VERDICT -----------
-        st.header("🧠 Verdict")
-        st.success(verdict)
-        st.progress(score)
+    st.success(f"Final Verdict: {verdict}")
+    st.info(f"Confidence Score: {score}")
 
-        # ----------- EXPLANATION -----------
-        st.header("📝 Explanation")
-        st.info(explanation)
+    # -------- SECTION 4: EXPLANATION ----------
+    st.header("4️⃣ Explanation")
+
+    explanation = (
+        f"After analyzing IMDb ratings and Rotten Tomatoes audience sentiment, "
+        f"the movie **{movie_name}** is considered a **{verdict.lower()}**. "
+        f"The confidence score of **{score}** reflects combined audience reception."
+    )
+
+    st.write(explanation)
