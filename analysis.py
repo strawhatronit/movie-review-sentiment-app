@@ -43,18 +43,27 @@ def get_imdb_rating(movie_name, movie_year=None):
     df = load_imdb_sample()
     search = re.sub(r"[^a-z0-9]", "", movie_name.lower())
 
+    # Exact match
     matches = df[df["normTitle"] == search]
 
+    # Year filter
     if movie_year and not matches.empty:
         year_matches = matches[matches["startYear"] == str(movie_year)]
         if not year_matches.empty:
             matches = year_matches
 
+    # Fallback: contains match
+    if matches.empty:
+        matches = df[df["normTitle"].str.contains(search, na=False)]
+
     if matches.empty:
         return None, None
 
-    best = matches.iloc[0]
+    # Pick most popular version
+    best = matches.sort_values("numVotes", ascending=False).iloc[0]
     return float(best["averageRating"]), int(best["numVotes"])
+
+
 
 
 def analyze_rt_reviews():
