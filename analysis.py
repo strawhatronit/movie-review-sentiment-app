@@ -20,9 +20,33 @@ imdb_ratings = load_imdb_ratings()
 # IMDb rating fetch
 # -----------------------------
 def get_imdb_rating(movie_name):
-    avg_rating = round(imdb_ratings["averageRating"].mean(), 1)
-    avg_votes = int(imdb_ratings["numVotes"].mean())
-    return avg_rating, avg_votes
+    basics = pd.read_csv(
+        "https://datasets.imdbws.com/title.basics.tsv.gz",
+        sep="\t",
+        compression="gzip",
+        usecols=["tconst", "primaryTitle"],
+        nrows=200_000
+    )
+
+    ratings = pd.read_csv(
+        "https://datasets.imdbws.com/title.ratings.tsv.gz",
+        sep="\t",
+        compression="gzip",
+        nrows=200_000
+    )
+
+    merged = basics.merge(ratings, on="tconst")
+
+    match = merged[
+        merged["primaryTitle"].str.lower() == movie_name.lower()
+    ]
+
+    if match.empty:
+        return None, None
+
+    row = match.iloc[0]
+    return float(row["averageRating"]), int(row["numVotes"])
+
 
 # -----------------------------
 # Rotten Tomatoes (simulated)
