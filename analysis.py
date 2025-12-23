@@ -19,33 +19,43 @@ imdb_ratings = load_imdb_ratings()
 # -----------------------------
 # IMDb rating fetch
 # -----------------------------
-def get_imdb_rating(movie_name):
+def get_imdb_rating(movie_name, movie_year=None):
     basics = pd.read_csv(
         "https://datasets.imdbws.com/title.basics.tsv.gz",
         sep="\t",
         compression="gzip",
-        usecols=["tconst", "primaryTitle"],
-        nrows=200_000
+        usecols=["tconst", "primaryTitle", "startYear"],
+        dtype=str,
+        nrows=500_000
     )
 
     ratings = pd.read_csv(
         "https://datasets.imdbws.com/title.ratings.tsv.gz",
         sep="\t",
         compression="gzip",
-        nrows=200_000
+        dtype=str,
+        nrows=500_000
     )
 
     merged = basics.merge(ratings, on="tconst")
 
-    match = merged[
-        merged["primaryTitle"].str.lower() == movie_name.lower()
-    ]
+    merged["primaryTitle"] = merged["primaryTitle"].str.lower()
+    merged["startYear"] = merged["startYear"].fillna("0")
 
-    if match.empty:
+    filtered = merged[merged["primaryTitle"] == movie_name.lower()]
+
+    if movie_year:
+        filtered = filtered[filtered["startYear"] == str(movie_year)]
+
+    if filtered.empty:
         return None, None
 
-    row = match.iloc[0]
-    return float(row["averageRating"]), int(row["numVotes"])
+    # pick most popular version if multiple remain
+    filtered["numVotes"] = filtered["numVotes"].astype(int)
+    best = filtered.sort_values("numVotes", ascending=False).iloc[0]
+
+    return float(best["averageRating"]), int(best["numVotes"])
+
 
 
 # -----------------------------
