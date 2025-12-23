@@ -9,6 +9,8 @@ st.title("🎬 Movie Review Sentiment Analyzer")
 # ---------------- INPUT ----------------
 st.header("1️⃣ Movie Input")
 movie_name = st.text_input("Enter movie name")
+movie_year = st.number_input("Release year (recommended)", min_value=1900, max_value=2025, value=2022)
+
 
 if movie_name:
     # ---------------- DATA ----------------
