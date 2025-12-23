@@ -19,6 +19,14 @@ imdb_ratings = load_imdb_ratings()
 # -----------------------------
 # IMDb rating fetch
 # -----------------------------
+def normalize_title(title):
+    return (
+        title.lower()
+        .replace(" ", "")
+        .replace(".", "")
+        .replace("-", "")
+    )
+
 def get_imdb_rating(movie_name, movie_year=None):
     basics = pd.read_csv(
         "https://datasets.imdbws.com/title.basics.tsv.gz",
@@ -26,7 +34,7 @@ def get_imdb_rating(movie_name, movie_year=None):
         compression="gzip",
         usecols=["tconst", "primaryTitle", "startYear"],
         dtype=str,
-        nrows=800_000
+        nrows=1_000_000
     )
 
     ratings = pd.read_csv(
@@ -34,29 +42,34 @@ def get_imdb_rating(movie_name, movie_year=None):
         sep="\t",
         compression="gzip",
         dtype=str,
-        nrows=800_000
+        nrows=1_000_000
     )
 
     merged = basics.merge(ratings, on="tconst", how="inner")
 
-    merged["primaryTitle"] = merged["primaryTitle"].str.lower()
-    merged["startYear"] = merged["startYear"].fillna("0")
+    # Clean data
+    merged = merged[merged["startYear"].str.isnumeric()]
+    merged["startYear"] = merged["startYear"].astype(int)
+    merged["numVotes"] = merged["numVotes"].astype(int)
+    merged["averageRating"] = merged["averageRating"].astype(float)
 
-    # fuzzy match + year filter
-    matches = merged[
-        merged["primaryTitle"].str.contains(movie_name.lower(), na=False)
-    ]
+    # Normalize titles
+    merged["normTitle"] = merged["primaryTitle"].apply(normalize_title)
+    search_title = normalize_title(movie_name)
 
+    matches = merged[merged["normTitle"] == search_title]
+
+    # Year filter (VERY IMPORTANT)
     if movie_year:
-        matches = matches[matches["startYear"] == str(movie_year)]
+        matches = matches[matches["startYear"] == int(movie_year)]
 
     if matches.empty:
         return None, None
 
-    matches["numVotes"] = matches["numVotes"].astype(int)
+    # Pick the most trusted one
     best = matches.sort_values("numVotes", ascending=False).iloc[0]
 
-    return float(best["averageRating"]), int(best["numVotes"])
+    return best["averageRating"], best["numVotes"]
 
 
 
