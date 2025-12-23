@@ -1,18 +1,17 @@
-import streamlit as st
-import pandas as pd
-
-   # analysis.py
-# analysis.py
 import pandas as pd
 import re
+import streamlit as st
 
-def load_imdb_data():
+@st.cache_data
+def load_imdb_sample():
+    # Load ONLY top movies by votes (RAM-safe)
     basics = pd.read_csv(
         "https://datasets.imdbws.com/title.basics.tsv.gz",
         sep="\t",
         compression="gzip",
         usecols=["tconst", "primaryTitle", "startYear", "titleType"],
         dtype=str,
+        nrows=300_000
     )
 
     ratings = pd.read_csv(
@@ -20,105 +19,58 @@ def load_imdb_data():
         sep="\t",
         compression="gzip",
         dtype=str,
+        nrows=300_000
     )
 
-    merged = basics.merge(ratings, on="tconst", how="inner")
-    merged = merged[merged["titleType"] == "movie"]
+    df = basics.merge(ratings, on="tconst")
+    df = df[df["titleType"] == "movie"]
 
-    merged["numVotes"] = pd.to_numeric(merged["numVotes"], errors="coerce")
-    merged["averageRating"] = pd.to_numeric(merged["averageRating"], errors="coerce")
+    df["numVotes"] = pd.to_numeric(df["numVotes"], errors="coerce")
+    df["averageRating"] = pd.to_numeric(df["averageRating"], errors="coerce")
+    df = df.dropna()
 
-    merged = merged.dropna(subset=["numVotes", "averageRating"])
-
-    merged["normTitle"] = (
-        merged["primaryTitle"]
-        .str.lower()
-        .str.replace(r"[^\w]", "", regex=True)
+    df["normTitle"] = df["primaryTitle"].apply(
+        lambda x: re.sub(r"[^a-z0-9]", "", x.lower())
     )
 
-    return merged
+    # Keep only popular movies
+    df = df.sort_values("numVotes", ascending=False).head(100_000)
 
-# -----------------------------
-# Load IMDb ratings (RAM safe)
-# -----------------------------
-def load_imdb_ratings():
-    return pd.read_csv(
-        "https://datasets.imdbws.com/title.ratings.tsv.gz",
-        sep="\t",
-        compression="gzip",
-        nrows=100_000
-    )
+    return df
 
-imdb_ratings = load_imdb_ratings()
-
-# -----------------------------
-# IMDb rating fetch
-# -----------------------------
-
-import re
-
-def normalize(title):
-    return re.sub(r"[^a-z0-9]", "", title.lower())
 
 def get_imdb_rating(movie_name, movie_year=None):
-    data = load_imdb_data()
+    df = load_imdb_sample()
+    search = re.sub(r"[^a-z0-9]", "", movie_name.lower())
 
-    search = normalize(movie_name)
-    data["normTitle"] = data["primaryTitle"].apply(normalize)
+    matches = df[df["normTitle"] == search]
 
-
-    # Only movies
-    data = data[data["titleType"] == "movie"]
-    data = data.sort_values("numVotes", ascending=False).head(300_000)
-
-
-    # Exact normalized match
-    matches = data[data["normTitle"] == search]
-
-    # Optional year filter
     if movie_year and not matches.empty:
         year_matches = matches[matches["startYear"] == str(movie_year)]
         if not year_matches.empty:
             matches = year_matches
 
-    # Fallback: contains match
-    if matches.empty:
-        matches = data[data["normTitle"].str.contains(search, na=False)]
-
     if matches.empty:
         return None, None
 
-    # Pick most popular version
-    matches["numVotes"] = matches["numVotes"].astype(int)
-    best = matches.sort_values("numVotes", ascending=False).iloc[0]
-
+    best = matches.iloc[0]
     return float(best["averageRating"]), int(best["numVotes"])
 
 
-
-
-
-
-
-# -----------------------------
-# Rotten Tomatoes (simulated)
-# -----------------------------
 def analyze_rt_reviews():
-    return 272, 28  # pos, neg
+    # Simulated Rotten Tomatoes
+    return 272, 28
 
-# -----------------------------
-# Final verdict logic
-# -----------------------------
+
 def final_verdict(imdb_rating, imdb_votes, rt_pos, rt_neg):
-    if imdb_rating is None or imdb_votes is None:
+    if imdb_rating is None:
         return "Insufficient IMDb data", 0.0
 
     rt_total = rt_pos + rt_neg
-    rt_score = rt_pos / rt_total if rt_total > 0 else 0
+    rt_score = rt_pos / rt_total if rt_total else 0
 
     score = (imdb_rating / 10) * 0.6 + rt_score * 0.4
-
     verdict = "Good Movie" if score >= 0.6 else "Average Movie"
-    return verdict, round(score, 2)
 
+    return verdict, round(score, 2)
 
