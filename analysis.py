@@ -58,6 +58,17 @@ def analyze_rt_reviews():
 # Final verdict logic
 # -----------------------------
 def final_verdict(imdb_rating, imdb_votes, rt_pos, rt_neg):
-    score = (imdb_rating / 10) * 0.6 + (rt_pos / (rt_pos + rt_neg)) * 0.4
-    verdict = "Good Movie" if score > 0.6 else "Average Movie"
+    # Safety check
+    if imdb_rating is None or imdb_votes is None:
+        return "Insufficient IMDb data", 0.0
+
+    if rt_pos + rt_neg == 0:
+        rt_score = 0
+    else:
+        rt_score = rt_pos / (rt_pos + rt_neg)
+
+    score = (imdb_rating / 10) * 0.6 + rt_score * 0.4
+
+    verdict = "Good Movie" if score >= 0.6 else "Bad Movie"
     return verdict, round(score, 2)
+
