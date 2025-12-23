@@ -26,7 +26,7 @@ def get_imdb_rating(movie_name, movie_year=None):
         compression="gzip",
         usecols=["tconst", "primaryTitle", "startYear"],
         dtype=str,
-        nrows=600_000
+        nrows=800_000
     )
 
     ratings = pd.read_csv(
@@ -34,14 +34,15 @@ def get_imdb_rating(movie_name, movie_year=None):
         sep="\t",
         compression="gzip",
         dtype=str,
-        nrows=600_000
+        nrows=800_000
     )
 
-    merged = basics.merge(ratings, on="tconst")
+    merged = basics.merge(ratings, on="tconst", how="inner")
 
     merged["primaryTitle"] = merged["primaryTitle"].str.lower()
     merged["startYear"] = merged["startYear"].fillna("0")
 
+    # fuzzy match + year filter
     matches = merged[
         merged["primaryTitle"].str.contains(movie_name.lower(), na=False)
     ]
@@ -55,7 +56,8 @@ def get_imdb_rating(movie_name, movie_year=None):
     matches["numVotes"] = matches["numVotes"].astype(int)
     best = matches.sort_values("numVotes", ascending=False).iloc[0]
 
-    return float(best["averageRating"]), int(best["numVotes"])
+    r
+
 
 
 
