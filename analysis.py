@@ -1,7 +1,41 @@
+import streamlit as st
+import pandas as pd
 
    # analysis.py
 # analysis.py
 import pandas as pd
+@st.cache_data(show_spinner="Loading IMDb datasets...")
+def load_imdb_data():
+    basics = pd.read_csv(
+        "https://datasets.imdbws.com/title.basics.tsv.gz",
+        sep="\t",
+        compression="gzip",
+        usecols=["tconst", "primaryTitle", "startYear", "titleType"],
+        dtype=str,
+    )
+
+    ratings = pd.read_csv(
+        "https://datasets.imdbws.com/title.ratings.tsv.gz",
+        sep="\t",
+        compression="gzip",
+        dtype=str,
+    )
+
+    merged = basics.merge(ratings, on="tconst", how="inner")
+    merged = merged[merged["titleType"] == "movie"]
+
+    merged["numVotes"] = pd.to_numeric(merged["numVotes"], errors="coerce")
+    merged["averageRating"] = pd.to_numeric(merged["averageRating"], errors="coerce")
+
+    merged = merged.dropna(subset=["numVotes", "averageRating"])
+
+    merged["normTitle"] = (
+        merged["primaryTitle"]
+        .str.lower()
+        .str.replace(r"[^\w]", "", regex=True)
+    )
+
+    return merged
 
 # -----------------------------
 # Load IMDb ratings (RAM safe)
@@ -28,58 +62,25 @@ def normalize_title(title):
     )
 
 def get_imdb_rating(movie_name, movie_year=None):
-    basics = pd.read_csv(
-        "https://datasets.imdbws.com/title.basics.tsv.gz",
-        sep="\t",
-        compression="gzip",
-        usecols=["tconst", "primaryTitle", "startYear", "titleType"],
-        dtype=str,
-        nrows=1_500_000
-    )
+    data = load_imdb_data()
+    search = movie_name.lower().replace(" ", "").replace(".", "")
 
-    ratings = pd.read_csv(
-        "https://datasets.imdbws.com/title.ratings.tsv.gz",
-        sep="\t",
-        compression="gzip",
-        dtype=str,
-        nrows=1_500_000
-    )
+    matches = data[data["normTitle"] == search]
 
-    merged = basics.merge(ratings, on="tconst", how="inner")
-
-    # Keep only movies
-    merged = merged[merged["titleType"] == "movie"]
-
-    # Clean numeric fields
-    merged["numVotes"] = pd.to_numeric(merged["numVotes"], errors="coerce")
-    merged["averageRating"] = pd.to_numeric(merged["averageRating"], errors="coerce")
-
-    merged = merged.dropna(subset=["numVotes", "averageRating"])
-
-    # Normalize titles
-    merged["normTitle"] = merged["primaryTitle"].apply(normalize_title)
-    search = normalize_title(movie_name)
-
-    # STEP 1: Exact title match
-    candidates = merged[merged["normTitle"] == search]
-
-    # STEP 2: If year exists, try filtering — but DO NOT force it
-    if movie_year and not candidates.empty:
-        year_matches = candidates[candidates["startYear"] == str(movie_year)]
+    if movie_year and not matches.empty:
+        year_matches = matches[matches["startYear"] == str(movie_year)]
         if not year_matches.empty:
-            candidates = year_matches
+            matches = year_matches
 
-    # STEP 3: If still empty, fallback to contains
-    if candidates.empty:
-        candidates = merged[merged["normTitle"].str.contains(search, na=False)]
+    if matches.empty:
+        matches = data[data["normTitle"].str.contains(search, na=False)]
 
-    if candidates.empty:
+    if matches.empty:
         return None, None
 
-    # STEP 4: Trust the most popular version
-    best = candidates.sort_values("numVotes", ascending=False).iloc[0]
-
+    best = matches.sort_values("numVotes", ascending=False).iloc[0]
     return float(best["averageRating"]), int(best["numVotes"])
+
 
 
 
