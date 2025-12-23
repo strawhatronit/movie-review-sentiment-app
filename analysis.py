@@ -56,7 +56,8 @@ def get_imdb_rating(movie_name, movie_year=None):
     matches["numVotes"] = matches["numVotes"].astype(int)
     best = matches.sort_values("numVotes", ascending=False).iloc[0]
 
-    r
+    return float(best["averageRating"]), int(best["numVotes"])
+
 
 
 
