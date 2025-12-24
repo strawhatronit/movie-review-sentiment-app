@@ -19,7 +19,8 @@ if movie_name:
     st.header("2️⃣ Ratings & Review Data")
 
     imdb_rating, imdb_votes = get_imdb_rating(movie_name, movie_year)
-    rt_pos, rt_neg = analyze_rt_reviews()
+    rt_pos, rt_neg = analyze_rt_reviews(movie_name, movie_year)
+
 
     st.metric("IMDb Rating", imdb_rating if imdb_rating else "N/A")
     st.metric("IMDb Votes", imdb_votes if imdb_votes else "N/A")
