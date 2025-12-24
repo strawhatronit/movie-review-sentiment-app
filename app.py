@@ -31,3 +31,6 @@ if movie_name:
 
     st.success(f"Final Verdict: {verdict}")
     st.info(f"Confidence Score: {score}")
+    if imdb_rating is None:
+    st.warning("Movie not found in IMDb sample dataset.")
+
