@@ -50,10 +50,18 @@ def analyze_rt_reviews(movie_name, movie_year=None):
 
 
 def final_verdict(imdb_rating, imdb_votes, rt_pos, rt_neg):
-    if imdb_rating is None:
+    # Handle missing IMDb
+    if imdb_rating is None or imdb_votes is None:
         return "Insufficient IMDb data", 0.0
 
-    rt_score = rt_pos / (rt_pos + rt_neg)
+    # Handle missing RT data safely
+    rt_total = rt_pos + rt_neg
+    if rt_total == 0:
+        rt_score = 0.5   # neutral RT score
+    else:
+        rt_score = rt_pos / rt_total
+
+    # Final weighted score
     score = (imdb_rating / 10) * 0.6 + rt_score * 0.4
 
     verdict = "Good Movie" if score >= 0.6 else "Average Movie"
