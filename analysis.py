@@ -27,7 +27,11 @@ def get_imdb_rating(movie_name, movie_year=None):
     return float(best["averageRating"]), int(best["numVotes"])
 
 def analyze_rt_reviews(movie_name, movie_year=None):
-    df = pd.read_csv("rt_sample.csv")
+    import os
+
+    BASE_DIR = os.path.dirname(__file__)
+    df = pd.read_csv(os.path.join(BASE_DIR, "rt_sample.csv"))
+
 
     # normalize
     df["normTitle"] = df["title"].str.lower().str.replace(r"[^a-z0-9]", "", regex=True)
