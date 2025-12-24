@@ -40,8 +40,19 @@ def load_imdb_sample():
 
 
 def get_imdb_rating(movie_name, movie_year=None):
-    df = load_imdb_sample()
+    df = load_imdb_data()
+
+    # Normalize search
     search = re.sub(r"[^a-z0-9]", "", movie_name.lower())
+    df["normTitle"] = df["primaryTitle"].apply(
+        lambda x: re.sub(r"[^a-z0-9]", "", x.lower())
+    )
+
+    # Only movies
+    df = df[df["titleType"] == "movie"]
+
+    # Prioritize popular titles
+    df = df.sort_values("numVotes", ascending=False).head(300_000)
 
     # Exact match
     matches = df[df["normTitle"] == search]
@@ -52,16 +63,16 @@ def get_imdb_rating(movie_name, movie_year=None):
         if not year_matches.empty:
             matches = year_matches
 
-    # Fallback: contains match
+    # Fallback: contains
     if matches.empty:
         matches = df[df["normTitle"].str.contains(search, na=False)]
 
     if matches.empty:
         return None, None
 
-    # Pick most popular version
-    best = matches.sort_values("numVotes", ascending=False).iloc[0]
+    best = matches.iloc[0]
     return float(best["averageRating"]), int(best["numVotes"])
+
 
 
 
